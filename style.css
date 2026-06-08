@@ -672,6 +672,22 @@ button, .btn-outline-secondary-file {
   text-decoration: none;
 }
 
+.sync-status {
+  display: flex;
+  align-items: center;
+  font-size: 18px;
+  width: 28px;
+  height: 28px;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+.sync-status.syncing span { display: inline-block; animation: spin 1s linear infinite; color: var(--primary); }
+.sync-status.synced span  { color: var(--success); }
+.sync-status.error span   { color: var(--warning); }
+.sync-status.offline span { color: var(--danger); }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
 .btn-primary {
   background: var(--primary);
   border: 1px solid transparent;

@@ -52,36 +52,57 @@ let categoryChartInstance = null;
 // 1. QUẢN LÝ DỮ LIỆU (LOCAL STORAGE & MOCK DATA)
 // ==========================================================================
 
-// Lưu dữ liệu vào LocalStorage
+// Lưu dữ liệu vào LocalStorage và Firestore
 function saveToStorage() {
   localStorage.setItem("finflow_state", JSON.stringify(state));
+  if (typeof saveToFirestore === "function") {
+    setSyncStatus("syncing");
+    saveToFirestore(state);
+  }
 }
 
-// Tải dữ liệu từ LocalStorage
+// Chuẩn hóa state sau khi load (tránh lỗi thiếu field)
+function normalizeState(s) {
+  if (!s.categories || s.categories.length === 0) s.categories = [...DEFAULT_CATEGORIES];
+  if (!s.transactions) s.transactions = [];
+  if (!s.budgets) s.budgets = [];
+  if (!s.savingsGoals) s.savingsGoals = [];
+  if (!s.userProfile) s.userProfile = { name: "Hải TM" };
+}
+
+// Tải dữ liệu từ LocalStorage (Firestore sẽ override sau nếu có dữ liệu mới hơn)
 function loadFromStorage() {
   const localData = localStorage.getItem("finflow_state");
   if (localData) {
     try {
       state = JSON.parse(localData);
-      
-      // Đảm bảo không mất danh mục mặc định nếu bị lỗi
-      if (!state.categories || state.categories.length === 0) {
-        state.categories = [...DEFAULT_CATEGORIES];
-      }
-      
-      // Khắc phục các mục thiếu hoặc lỗi cấu trúc
-      if (!state.transactions) state.transactions = [];
-      if (!state.budgets) state.budgets = [];
-      if (!state.savingsGoals) state.savingsGoals = [];
-      if (!state.userProfile) state.userProfile = { name: "Hải TM" };
-      
+      normalizeState(state);
     } catch (e) {
       console.error("Lỗi khi giải mã dữ liệu LocalStorage. Khởi động lại.", e);
       initializeDefaults();
     }
   } else {
     initializeDefaults();
-    loadMockData(); // Tải trước một ít dữ liệu mẫu để giao diện trực quan ngay từ đầu
+    loadMockData();
+  }
+
+  // Load từ Firestore bất đồng bộ — nếu có dữ liệu thì override và render lại
+  if (typeof loadFromFirestore === "function") {
+    setSyncStatus("syncing");
+    loadFromFirestore().then((cloudData) => {
+      if (cloudData) {
+        state = cloudData;
+        normalizeState(state);
+        localStorage.setItem("finflow_state", JSON.stringify(state));
+        setSyncStatus("synced");
+        // Render lại tab hiện tại với dữ liệu mới nhất từ cloud
+        const activeTab = document.querySelector(".menu-item.active");
+        const tabName = activeTab ? activeTab.dataset.tab : "dashboard";
+        handleTabChange(tabName);
+      } else {
+        setSyncStatus("synced");
+      }
+    }).catch(() => setSyncStatus("offline"));
   }
 }
 
